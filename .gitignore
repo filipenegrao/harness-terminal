@@ -2,6 +2,9 @@
 dist/
 node_modules/
 
+# Harness Prompts
+_prompts/
+
 # Rust / Tauri
 src-tauri/target/
 

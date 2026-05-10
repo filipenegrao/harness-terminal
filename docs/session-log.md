@@ -59,3 +59,32 @@
 
 Wire the launch sequence: read `harness.toml` on app start, auto-spawn PTY
 per agent, connect sidecar IPC. See HANDOFF.md for acceptance criteria.
+
+---
+
+## 2026-05-10 — Session 2: Launch sequence orchestration gate
+
+**Operator:** Filipe Negrão
+**Agent:** Codex orchestrator
+
+### What was done
+
+1. Processed Builder attempt 1 for launch-sequence wiring:
+   - `harness.toml` bootstrap into Tauri state
+   - auto-spawn one PTY per configured agent
+   - PTY stdout mirrored to Python sidecar over localhost TCP `127.0.0.1:7374`
+   - WebSocket state updates wired into Zustand
+
+2. Sent the implementation through QA:
+   - Result: APPROVED WITH RESERVATIONS
+   - Acceptance criteria satisfied from review
+   - xterm no-remount constraint confirmed satisfied
+
+3. Sent the approved diff through Security:
+   - Result: ADVISORY
+   - No critical findings
+   - Main follow-up: harden localhost PTY ingest against oversized/partial/malformed frames and arbitrary agent IDs
+
+### Final state
+
+Launch sequence gate succeeded on attempt 1. Security advisories remain for a hardening pass before broader release.

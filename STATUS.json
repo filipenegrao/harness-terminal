@@ -2,6 +2,12 @@
   "version": "0.1.0",
   "phase": "1-mvp",
   "last_updated": "2026-05-10",
+  "orchestrator": {
+    "active_task": "launch_sequence",
+    "attempt": 1,
+    "step": "final_check",
+    "notes": "Attempt 1 complete: QA APPROVED WITH RESERVATIONS; Security ADVISORY with no critical findings"
+  },
   "features": {
     "scaffold": {
       "status": "done",
@@ -28,12 +34,12 @@
       "notes": "server.py implemented; not battle-tested"
     },
     "launch_sequence": {
-      "status": "todo",
-      "notes": "Auto-spawn agents from harness.toml on app start"
+      "status": "done",
+      "notes": "Attempt 1 succeeded: TCP 7374 ingest + bootstrap_harness + store diff merge; QA approved with reservations; Security ADVISORY"
     },
     "pty_sidecar_pipe": {
-      "status": "todo",
-      "notes": "Route PTY stdout to Python sidecar for signal parsing"
+      "status": "done",
+      "notes": "Multiplex TCP 127.0.0.1:7374 per framing in server.py/pty.rs accepted by QA and Security with localhost DoS hardening advisories"
     },
     "pty_resize": {
       "status": "todo",

@@ -64,10 +64,73 @@ Acceptance criteria:
 
 ---
 
+## Orchestrator cycle (last completed)
+
+| Field | Value |
+|-------|--------|
+| Task | Wire launch sequence (HANDOFF “Next task”) |
+| Attempt | 1 of 3 |
+| Step | **Final check** — completed **2026-05-10** |
+| Status | **Success** — QA approved with reservations; Security returned ADVISORY with no critical findings. |
+| Dashboard | `final_check` |
+
+### Builder return summary (attempt 1)
+
+- **PTY → Python:** localhost TCP `127.0.0.1:7374`, framed chunks (u16 LE agent id len, u32 LE payload len, UTF-8 `agent_id`, raw bytes); documented in `harness/server.py` / `PTY_INGEST_ADDR` in `pty.rs`.
+- **Rust:** repo-root `harness.toml` resolution (cwd + parent walk), bootstrap JSON, `bootstrap_harness` spawns one PTY per agent (`sh -c "<command>"`), `BootstrapDone` avoids double spawn under React Strict Mode.
+- **Forwarding:** PTY readers emit `pty-data-{id}` to xterm and mirror bytes to sidecar when TCP up (lazy connect, reconnect on write failure).
+- **Python:** WS `7373` + ingest `7374`; lines → `parse_line` → `apply_signal` → `state_diff` over WS.
+- **React:** `bootstrap_harness` on mount; `useWebSocket` applies `full_state` / `state_diff`; `applyDiff` merges per-agent patches.
+- **xterm:** `usePtyTerminal` still `[]` effect deps (no remount on store updates).
+- **AGENTS.md:** restored to Harness Signal Protocol v1 (was unrelated Notion text).
+- **Verification (Builder):** `cargo check` pass (unused `start_sidecar` warning); `npm run build` pass.
+- **Scope hygiene:** `.gitignore`, `HANDOFF.md`, `STATUS.json`, untracked `NOTION_PROJECT_PROTOCOL.md` may be mixed — review before commit. New file: `src-tauri/src/config.rs` (ensure tracked).
+
+### QA verdict (attempt 1)
+
+**VERDICT:** APPROVED WITH RESERVATIONS
+
+- Acceptance criteria judged satisfied from code review: `harness.toml` bootstrap, all 4 PTYs spawned, PTY input/output path, Python ingest, and signal parsing/broadcast.
+- xterm remount constraint judged fully satisfied: `usePtyTerminal` attaches once with `[]` deps and store updates only affect chrome.
+- Non-blocking reservations to carry forward:
+  1. `applyDiff` drops new agents if a `state_diff` contains an agent absent from the current store.
+  2. `bootstrap_harness` static snapshot can theoretically clobber earlier live WS state.
+  3. Python ingest has no payload size bound.
+  4. `git rev-parse` runs synchronously on startup without timeout.
+  5. `SidecarForward` does not set `TCP_NODELAY`.
+  6. `useWebSocket` subscribes `App` to the full store.
+  7. `resolve_harness_toml` has harmless dead fallback code.
+
+QA recommended addressing reservations 1 and 5 before shipping, but did not block the gate.
+
+### Security verdict (attempt 1)
+
+**VERDICT:** ADVISORY
+
+- No exploitable remote blocker found.
+- New network services bind to `127.0.0.1`.
+- React renders parsed signal/config fields through text interpolation, not HTML.
+- PTY command execution from repo-local `harness.toml` is intentional for this local dev harness.
+- Security advisories to carry forward before broader release:
+  1. Bound `payload_len` in `harness/server.py`.
+  2. Validate `agent_id` before creating/growing PTY line buffers.
+  3. Cap incomplete line buffers and add read timeouts/connection limits for partial frames.
+  4. Handle malformed UTF-8 agent IDs cleanly.
+  5. Consider gating/removing arbitrary `pty_spawn` from webview once bootstrap is the only needed path.
+  6. Treat untrusted repos/configs as unsafe because `harness.toml` commands run via `sh -c`.
+  7. Add startup timeout/backgrounding around `git rev-parse`.
+  8. Keep PTY frame payload casts explicit if the read path ever exceeds 4096-byte chunks.
+  9. Consider allowlisting config-derived class/style fields for UI integrity.
+
+### Final result
+
+Attempt 1 succeeded. The launch-sequence implementation can proceed with ADVISORY security status. Do not mark the overall project complete without explicit human approval.
+
+---
+
 ## Known risks / open questions
 
-1. **PTY → sidecar IPC** — mechanism not chosen. Named pipe vs. stdin mux.
-   See spec section 4.5.
+1. **PTY → sidecar IPC** — Builder chose **TCP 7374 multiplex**; QA and Security accepted it with localhost DoS hardening advisories.
 2. **xterm resize** — `fitAddon.fit()` must be called on pane resize.
    Tauri window resize events need to propagate correctly.
 3. **Sidecar bundling** — PyInstaller binary size; test early before release.
