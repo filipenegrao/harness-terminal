@@ -45,6 +45,8 @@ export const useHarnessStore = create<HarnessStore>((set) => ({
           const prev = agents[id];
           if (prev && patch) {
             agents[id] = { ...prev, ...patch };
+          } else if (patch) {
+            agents[id] = patch;
           }
         }
       }

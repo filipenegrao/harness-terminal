@@ -126,6 +126,74 @@ QA recommended addressing reservations 1 and 5 before shipping, but did not bloc
 
 Attempt 1 succeeded. The launch-sequence implementation can proceed with ADVISORY security status. Do not mark the overall project complete without explicit human approval.
 
+## Orchestrator cycle (last completed)
+
+| Field | Value |
+|-------|--------|
+| Task | Security hardening follow-up |
+| Attempt | 1 of 3 |
+| Step | **Final check** — completed **2026-05-10** |
+| Status | **Success** — QA approved; Security returned ADVISORY with no critical findings. |
+| Dashboard | `final_check` |
+
+### Builder scope (attempt 1)
+
+- Harden Python PTY ingest in `harness/server.py`:
+  - bound frame payload sizes before `readexactly(payload_len)`;
+  - validate `agent_id` against configured `state.agents` before creating/growing `_pty_line_buffers`;
+  - cap incomplete per-agent line buffers;
+  - add per-frame read timeouts and a reasonable connection limit;
+  - handle malformed UTF-8 agent IDs cleanly without unhandled task exceptions.
+- Apply two cheap launch-sequence polish fixes from QA/Security if low-risk:
+  - set `TCP_NODELAY` on the Rust TCP forwarder in `src-tauri/src/pty.rs`;
+  - fix `applyDiff` so new agents from server diffs are not silently dropped.
+- Do not broaden into PTY resize, sidecar bundling, file tree, git branch UI, or unrelated cleanup.
+
+### Builder return summary (attempt 1)
+
+- `harness/server.py`: added `_MAX_PAYLOAD` 64 KiB, `_MAX_LINE_BUFFER` 1 MiB, `_MAX_PTY_CONNECTIONS` 5, `_FRAME_TIMEOUT` 30s, and `_MAX_AGENT_ID_LEN` 256.
+- Oversized frames are rejected before payload `readexactly`.
+- Malformed UTF-8 agent IDs and too-long agent IDs close the ingest connection cleanly.
+- Unknown agent IDs are rejected before `_pty_line_buffers` is touched.
+- Incomplete per-agent line buffers are cleared when they exceed the cap without a newline.
+- PTY ingest reads use `asyncio.wait_for`; active connections are capped with `_active_pty_connections`.
+- `src-tauri/src/pty.rs`: sets `TCP_NODELAY` after connecting to Python ingest.
+- `src/store/agentStore.ts`: `applyDiff` now inserts new agents from server diffs instead of dropping them.
+- Builder sensors: `cd src-tauri && cargo check` passed with pre-existing unused `start_sidecar` warning; `npm run build` passed. No Python tests exist; syntax/import check parsed AST, but `websockets` import was unavailable outside bundled environment.
+- Builder remaining risks: no dead-agent buffer cleanup if agents are removed while data is in transit; connection tracking uses `id(writer)`.
+
+### QA verdict (attempt 1)
+
+**VERDICT:** APPROVED
+
+- QA confirmed all five Python hardening items and both optional fixes landed correctly.
+- No blockers.
+- Sensors: `npm run build` passed; `cargo check` passed with only the pre-existing unused `start_sidecar` warning; no Python tests exist.
+- Non-blocking reservations to carry forward:
+  1. `_FRAME_TIMEOUT` applies per `readexactly` call, so one full slow frame can hold a slot for up to roughly 90 seconds.
+  2. `id(writer)` as connection key is correct for CPython but non-obvious and less portable.
+  3. `applyDiff` new-agent insertion assumes server diffs contain complete `AgentState` objects.
+  4. `b"\n" not in buf` scans up to 1 MiB on every chunk.
+  5. `set_nodelay` failure is silently swallowed, acceptable because it is an optimization.
+
+### Security verdict (attempt 1)
+
+**VERDICT:** ADVISORY
+
+- Previous Security ADVISORY items are adequately addressed for this local dev context.
+- Valid PTY frames still parse and broadcast.
+- Malformed, oversized, and unknown-agent frames close cleanly in review/smoke coverage.
+- No critical findings and no Builder remediation required before merge.
+- Remaining non-blocking items:
+  1. `_FRAME_TIMEOUT` is per read step, so five slow local clients can temporarily occupy the PTY ingest pool; consider a total per-frame deadline later.
+  2. `b"\n" not in buf` bounds memory but can still create local CPU churn up to the 1 MiB cap.
+  3. `id(writer)` connection tracking is adequate in CPython but a monotonic counter or storing writer objects would be clearer.
+  4. `applyDiff` new-agent insertion depends on the current server contract that agent diffs are complete `agent.to_dict()` objects.
+
+### Final result
+
+Attempt 1 succeeded. The security hardening follow-up can proceed with ADVISORY status.
+
 ---
 
 ## Known risks / open questions
@@ -134,6 +202,20 @@ Attempt 1 succeeded. The launch-sequence implementation can proceed with ADVISOR
 2. **xterm resize** — `fitAddon.fit()` must be called on pane resize.
    Tauri window resize events need to propagate correctly.
 3. **Sidecar bundling** — PyInstaller binary size; test early before release.
+
+## Backlog — security hardening polish
+
+Carry these lower-priority polish items forward:
+
+1. Replace per-read PTY ingest timeout windows with a total per-frame deadline.
+2. Replace `id(writer)` connection tracking with writer-object tracking or a monotonic connection ID.
+3. Keep the server contract explicit: inserted `state_diff` agents must be complete `AgentState` objects.
+4. Consider optimizing the no-newline buffer cap check if large-output agents create CPU churn.
+5. Consider gating or removing arbitrary `pty_spawn` from the webview once bootstrap is the only supported spawn path.
+6. Document that opening untrusted repos/configs is unsafe because `harness.toml` commands execute via `sh -c`.
+7. Add timeout/backgrounding around startup `git rev-parse`.
+8. Keep PTY frame payload casts explicit if the read path ever changes beyond 4096-byte chunks.
+9. Consider allowlisting config-derived class/style fields for UI integrity.
 
 ---
 

@@ -3,10 +3,10 @@
   "phase": "1-mvp",
   "last_updated": "2026-05-10",
   "orchestrator": {
-    "active_task": "launch_sequence",
+    "active_task": "security_hardening",
     "attempt": 1,
     "step": "final_check",
-    "notes": "Attempt 1 complete: QA APPROVED WITH RESERVATIONS; Security ADVISORY with no critical findings"
+    "notes": "Attempt 1 complete: QA APPROVED; Security ADVISORY with no critical findings"
   },
   "features": {
     "scaffold": {
@@ -40,6 +40,14 @@
     "pty_sidecar_pipe": {
       "status": "done",
       "notes": "Multiplex TCP 127.0.0.1:7374 per framing in server.py/pty.rs accepted by QA and Security with localhost DoS hardening advisories"
+    },
+    "security_hardening": {
+      "status": "done",
+      "notes": "Attempt 1 succeeded: PTY ingest limits/timeouts/connection cap/UTF-8 handling plus TCP_NODELAY and applyDiff new-agent fix; QA approved; Security ADVISORY"
+    },
+    "security_hardening_polish": {
+      "status": "todo",
+      "notes": "Non-blocking follow-up: total per-frame deadline, clearer connection tracking, explicit complete-agent diff contract, optional buffer scan optimization"
     },
     "pty_resize": {
       "status": "todo",

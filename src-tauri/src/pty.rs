@@ -70,7 +70,10 @@ impl SidecarForward {
     pub fn forward_chunk(&self, agent_id: &str, data: &[u8]) {
         let mut guard = self.0.lock().unwrap();
         if guard.is_none() {
-            *guard = TcpStream::connect(PTY_INGEST_ADDR).ok();
+            if let Ok(stream) = TcpStream::connect(PTY_INGEST_ADDR) {
+                let _ = stream.set_nodelay(true);
+                *guard = Some(stream);
+            }
         }
         if let Some(ref mut stream) = *guard {
             if write_frame(stream, agent_id, data).is_err() {

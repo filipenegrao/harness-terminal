@@ -88,3 +88,35 @@ per agent, connect sidecar IPC. See HANDOFF.md for acceptance criteria.
 ### Final state
 
 Launch sequence gate succeeded on attempt 1. Security advisories remain for a hardening pass before broader release.
+
+---
+
+## 2026-05-10 — Session 3: PTY ingest security hardening gate
+
+**Operator:** Filipe Negrão
+**Agent:** Codex orchestrator
+
+### What was done
+
+1. Processed Builder attempt 1 for the Security ADVISORY follow-up:
+   - bounded PTY ingest frame payloads
+   - validated agent IDs before line-buffer creation/growth
+   - capped incomplete per-agent line buffers
+   - added per-read timeouts and active connection cap
+   - handled malformed UTF-8 agent IDs cleanly
+   - added `TCP_NODELAY` on Rust PTY ingest forwarding
+   - fixed `applyDiff` new-agent insertion
+
+2. Sent the implementation through QA:
+   - Result: APPROVED
+   - No blockers
+   - `npm run build` and `cargo check` passed, with only the pre-existing unused `start_sidecar` warning
+
+3. Sent the approved diff through Security:
+   - Result: ADVISORY
+   - No critical findings
+   - Previous advisory items adequately addressed for the local dev context
+
+### Final state
+
+Security hardening follow-up succeeded on attempt 1. Remaining items are non-blocking polish: total per-frame deadline, clearer connection tracking, explicit complete-agent diff contract, and optional no-newline buffer scan optimization.
