@@ -120,3 +120,34 @@ Launch sequence gate succeeded on attempt 1. Security advisories remain for a ha
 ### Final state
 
 Security hardening follow-up succeeded on attempt 1. Remaining items are non-blocking polish: total per-frame deadline, clearer connection tracking, explicit complete-agent diff contract, and optional no-newline buffer scan optimization.
+
+---
+
+## 2026-05-10 — Session 4: Live end-to-end smoke gate
+
+**Operator:** Filipe Negrão
+**Agent:** Codex orchestrator
+
+### What was done
+
+1. Processed Builder attempt 1 for live smoke:
+   - Python sidecar started on WebSocket `7373` and PTY ingest `7374`
+   - Tauri dev reached `Running target/debug/harness`
+   - WebSocket `full_state` returned all 4 configured agents
+   - framed TCP PTY ingest produced `state_diff`
+   - required Harness signals and same-line `[TASK:...]` parsed and broadcast
+   - oversized frame rejection was exercised
+
+2. Sent the smoke report through QA:
+   - Result: APPROVED WITH RESERVATIONS
+   - No functional diff; only orchestration state files changed
+   - GUI/xterm behavior was inferred from reviewed code but not visually exercised
+
+3. Sent the approved smoke through Security:
+   - Result: ADVISORY
+   - No critical findings
+   - No Builder remediation required
+
+### Final state
+
+Live smoke gate succeeded on attempt 1 with reservations. Backend/protocol runtime evidence is accepted; GUI/xterm live verification and parser/spec alignment remain follow-up tasks.

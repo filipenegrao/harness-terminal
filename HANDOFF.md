@@ -51,16 +51,16 @@ WebSocket sidecar for signal parsing, and a structured signal protocol
 
 ## Next task
 
-**Wire the launch sequence:** read `harness.toml` on app start, spawn one
-PTY per agent via `pty_spawn`, connect the Zustand store to real WebSocket
-state from the Python sidecar.
+**Live end-to-end smoke:** prove the committed launch sequence works in the real
+app flow with Python sidecar + Tauri app + 4 PTYs + signal parsing into UI.
 
 Acceptance criteria:
-1. `npm run tauri dev` + `python harness/main.py` starts the app
-2. All 4 agents from `harness.toml` have live PTY panes
-3. Typing in an agent pane sends input to the PTY
-4. PTY output renders correctly in xterm.js
-5. Python sidecar receives stdout and parses signals
+1. Python sidecar starts and listens on `ws://127.0.0.1:7373` and PTY ingest `127.0.0.1:7374`
+2. `npm run tauri dev` starts the app without manual agent spawning
+3. All 4 agents from `harness.toml` have live PTY panes
+4. Typing in an agent pane sends input to the correct PTY
+5. PTY output renders correctly in xterm.js
+6. A real Harness signal emitted from a PTY reaches Python, parses, broadcasts over WebSocket, and updates UI state
 
 ---
 
@@ -194,6 +194,78 @@ Attempt 1 succeeded. The launch-sequence implementation can proceed with ADVISOR
 
 Attempt 1 succeeded. The security hardening follow-up can proceed with ADVISORY status.
 
+## Orchestrator cycle (last completed)
+
+| Field | Value |
+|-------|--------|
+| Task | Live end-to-end smoke |
+| Attempt | 1 of 3 |
+| Step | **Final check** — completed **2026-05-10** |
+| Status | **Success with reservations** — QA approved with reservations; Security returned ADVISORY with no critical findings. |
+| Dashboard | `final_check` |
+
+### Builder scope (attempt 1)
+
+- Run the real app path with Python sidecar and Tauri dev.
+- Verify 4 configured PTY panes are live.
+- Verify keyboard input reaches the intended PTY.
+- Verify PTY output renders in xterm.
+- Emit at least one Harness signal from a PTY and verify Python parses/broadcasts it and UI state updates.
+- Prefer no code changes. Only make minimal fixes if the smoke exposes a real blocker, and report them explicitly.
+
+### Builder return summary (attempt 1)
+
+**VERDICT:** PASS WITH RESERVATIONS
+
+- No code changes.
+- Created `harness/.venv` because Homebrew Python is PEP 668-managed, then installed `harness/requirements.txt`.
+- Started `harness/.venv/bin/python harness/main.py`; sidecar loaded project `my-project` with 4 agents and listened on WebSocket `7373` plus PTY ingest `7374`.
+- Ran `npm run tauri dev`; Vite started on `1420`, Cargo ran, and native binary reached `Running target/debug/harness` after clearing a stale process on port `1420`.
+- Sidecar logs showed WebSocket connections and a PTY ingest connection from the native app.
+- Scripted WebSocket/TCP checks verified:
+  - `full_state` includes `builder`, `orchestrator`, `qa`, and `security`;
+  - framed PTY ingest produces `state_diff`;
+  - `[STATUS:working] [NEXT:none] [TOKENS:123]` parses and broadcasts;
+  - single-line required signal plus `[TASK:live smoke signal parse]` updates `last_task`;
+  - oversized payload frame logs warning and is rejected.
+- Not visually verified in GUI: four visible xterm panes, keyboard input through a pane, xterm echo/rendering, UI update after signal, and no xterm remount during live React state updates.
+- Operational reservations:
+  1. GUI/xterm criteria require human or UI automation confirmation.
+  2. `[TASK:...]` only updates when it appears on the same line as the required `[STATUS:...]` signal, per parser behavior.
+  3. First plain `python3 harness/main.py` required venv setup on this PEP 668 Homebrew Python.
+  4. A stale Vite process on port `1420` had to be killed before Tauri dev could start.
+
+### QA verdict (attempt 1)
+
+**VERDICT:** APPROVED WITH RESERVATIONS
+
+- QA confirmed zero functional code changes in the smoke cycle; only `HANDOFF.md` and `STATUS.json` differ.
+- Backend/protocol evidence is accepted: sidecar on `7373` and `7374`, Tauri startup without manual spawning, `full_state` with all 4 agents, native PTY ingest connection, signal parse/broadcast, optional same-line `[TASK]`, and oversized-frame rejection.
+- No blockers.
+- Reservations to carry into Security/follow-up:
+  1. Keyboard input to PTY and PTY output rendering in xterm were not visually or mechanically exercised.
+  2. The visual UI update path (`useWebSocket` -> `applyDiff` -> Zustand -> `AgentPane`) was not observed in the running GUI.
+  3. The xterm no-remount invariant was inferred from unchanged reviewed code but not exercised under live `state_diff` traffic.
+  4. AGENTS.md permits optional signals on separate lines, but `harness/parser.py` only captures optional fields on the same line as the required status signal.
+  5. The Homebrew Python venv requirement and stale Vite port are operational notes, not product bugs.
+
+### Security verdict (attempt 1)
+
+**VERDICT:** ADVISORY
+
+- No functional code changes were introduced by this smoke cycle; only orchestration docs changed.
+- Backend smoke evidence is acceptable for Security: localhost sidecar/ingest, WS `full_state`, framed TCP `state_diff`, valid signal parsing, same-line `[TASK]`, and oversized-frame rejection.
+- No critical findings and no Builder remediation required.
+- Security advisories to carry forward:
+  1. AGENTS.md optional-signal examples allow separate lines, while `harness/parser.py` only captures optionals on lines that also contain `[STATUS:...]`; Security sees no unsafe spoofing/state-confusion impact, but metadata can be missed.
+  2. GUI evidence remains partial: keyboard input, xterm rendering, visible UI updates, and live no-remount behavior were not exercised.
+  3. `harness/.venv` was created by smoke setup and is ignored by `.gitignore`; no tracked dependency material was introduced.
+  4. A local Node listener remained on `[::1]:1420`; no `7373`/`7374` listeners were observed. Treat as operational cleanup.
+
+### Final result
+
+Attempt 1 succeeded with ADVISORY security status. Backend/protocol runtime smoke passed; GUI/xterm live verification remains a follow-up before claiming the UI criteria are fully closed.
+
 ---
 
 ## Known risks / open questions
@@ -202,6 +274,8 @@ Attempt 1 succeeded. The security hardening follow-up can proceed with ADVISORY 
 2. **xterm resize** — `fitAddon.fit()` must be called on pane resize.
    Tauri window resize events need to propagate correctly.
 3. **Sidecar bundling** — PyInstaller binary size; test early before release.
+4. **GUI/xterm live verification** — Run a targeted local GUI check for visible panes, keyboard input, xterm rendering, UI status update, and no xterm remount/flicker under live `state_diff`.
+5. **Signal protocol alignment** — Either update AGENTS.md to require optional fields on the same line as `[STATUS:...]`, or patch `harness/parser.py` to support optional signal lines as the spec implies.
 
 ## Backlog — security hardening polish
 
@@ -216,6 +290,11 @@ Carry these lower-priority polish items forward:
 7. Add timeout/backgrounding around startup `git rev-parse`.
 8. Keep PTY frame payload casts explicit if the read path ever changes beyond 4096-byte chunks.
 9. Consider allowlisting config-derived class/style fields for UI integrity.
+
+## Backlog — operational docs
+
+1. Document the Homebrew Python / PEP 668 dev path: create `harness/.venv` and install `harness/requirements.txt`.
+2. Document cleanup for stale dev listeners on port `1420` before `npm run tauri dev`.
 
 ---
 

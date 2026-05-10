@@ -3,10 +3,10 @@
   "phase": "1-mvp",
   "last_updated": "2026-05-10",
   "orchestrator": {
-    "active_task": "security_hardening",
+    "active_task": "live_e2e_smoke",
     "attempt": 1,
     "step": "final_check",
-    "notes": "Attempt 1 complete: QA APPROVED; Security ADVISORY with no critical findings"
+    "notes": "Attempt 1 complete: QA APPROVED WITH RESERVATIONS; Security ADVISORY with no critical findings"
   },
   "features": {
     "scaffold": {
@@ -48,6 +48,22 @@
     "security_hardening_polish": {
       "status": "todo",
       "notes": "Non-blocking follow-up: total per-frame deadline, clearer connection tracking, explicit complete-agent diff contract, optional buffer scan optimization"
+    },
+    "live_e2e_smoke": {
+      "status": "done",
+      "notes": "Attempt 1 succeeded with reservations: backend/protocol smoke passed; QA approved with reservations; Security ADVISORY; GUI/xterm live verification remains follow-up"
+    },
+    "gui_xterm_live_verification": {
+      "status": "todo",
+      "notes": "Follow-up: visually/mechanically verify four panes, keyboard input, xterm rendering, UI status update, and no xterm remount under live state_diff"
+    },
+    "signal_protocol_alignment": {
+      "status": "todo",
+      "notes": "AGENTS.md optional-signal examples permit separate lines, but harness/parser.py only captures optionals on same line as STATUS"
+    },
+    "dev_setup_docs": {
+      "status": "todo",
+      "notes": "Document harness/.venv setup for Homebrew Python PEP 668 and stale Vite port 1420 cleanup"
     },
     "pty_resize": {
       "status": "todo",
