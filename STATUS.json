@@ -1,0 +1,64 @@
+{
+  "version": "0.1.0",
+  "phase": "1-mvp",
+  "last_updated": "2026-05-10",
+  "features": {
+    "scaffold": {
+      "status": "done",
+      "notes": "Tauri 2 + React + Vite + Python sidecar, cargo check + tsc clean"
+    },
+    "bento_layout": {
+      "status": "done",
+      "notes": "CSS grid, context panel + 2x2 agent grid + user terminal"
+    },
+    "zustand_store": {
+      "status": "done",
+      "notes": "Mock data; WebSocket subscriber skeleton"
+    },
+    "pty_bridge": {
+      "status": "spiked",
+      "notes": "Read/write path wired in Rust + React hook; not end-to-end with real agents"
+    },
+    "signal_parser": {
+      "status": "done",
+      "notes": "parser.py fully implemented and smoke-tested"
+    },
+    "websocket_sidecar": {
+      "status": "done",
+      "notes": "server.py implemented; not battle-tested"
+    },
+    "launch_sequence": {
+      "status": "todo",
+      "notes": "Auto-spawn agents from harness.toml on app start"
+    },
+    "pty_sidecar_pipe": {
+      "status": "todo",
+      "notes": "Route PTY stdout to Python sidecar for signal parsing"
+    },
+    "pty_resize": {
+      "status": "todo",
+      "notes": "Call fitAddon.fit() + Tauri resize on pane dimension change"
+    },
+    "token_bars": {
+      "status": "done",
+      "notes": "ContextPanel renders from store; needs live data"
+    },
+    "status_dots": {
+      "status": "done",
+      "notes": "Driven by agent.status in store; needs live signals"
+    },
+    "file_tree": {
+      "status": "phase-2",
+      "notes": "watchdog watcher.py stub exists"
+    },
+    "git_branch": {
+      "status": "phase-2"
+    },
+    "keyboard_shortcuts": {
+      "status": "phase-2"
+    },
+    "agents_md_injection": {
+      "status": "phase-2"
+    }
+  }
+}
