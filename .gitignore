@@ -1,0 +1,32 @@
+# Build output
+dist/
+node_modules/
+
+# Rust / Tauri
+src-tauri/target/
+
+# Python sidecar
+harness/__pycache__/
+harness/*.pyc
+harness/venv/
+harness/.venv/
+*.egg-info/
+
+# Environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Binaries / fonts
+*.dmg
+*.AppImage
+*.deb
+*.exe
+*.ttf
+*.otf

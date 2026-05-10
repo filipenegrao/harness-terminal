@@ -1,0 +1,45 @@
+[project]
+name = "my-project"
+working_dir = "."
+agents_md = "./AGENTS.md"
+
+[[agents]]
+id = "orchestrator"
+name = "Orchestrator"
+icon = "ti-adjustments"
+model = "claude-sonnet-4"
+command = "claude --agent orchestrator"
+tokens_max = 100000
+color = "amber"
+
+[[agents]]
+id = "builder"
+name = "Builder"
+icon = "ti-hammer"
+model = "claude-sonnet-4"
+command = "claude --agent builder"
+tokens_max = 100000
+color = "blue"
+
+[[agents]]
+id = "qa"
+name = "QA"
+icon = "ti-checklist"
+model = "claude-sonnet-4"
+command = "claude --agent qa"
+tokens_max = 100000
+color = "purple"
+
+[[agents]]
+id = "security"
+name = "Security"
+icon = "ti-shield-check"
+model = "claude-sonnet-4"
+command = "claude --agent security"
+tokens_max = 100000
+color = "green"
+
+[layout]
+context_panel_width = 220
+user_terminal_height = 100
+grid_columns = 2

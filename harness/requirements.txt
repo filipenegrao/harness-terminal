@@ -1,0 +1,3 @@
+websockets>=12.0
+watchdog>=4.0
+# tomllib is stdlib in Python 3.11+; no extra dep needed
