@@ -40,10 +40,10 @@ WebSocket sidecar for signal parsing, and a structured signal protocol
 | Python parser.py | ✅ Fully implemented |
 | Python state/loader/server | ✅ Implemented (not battle-tested) |
 | PTY bridge (Rust ↔ xterm.js) | ✅ Spiked — read/write path works |
-| Auto-spawn agents on launch | ❌ Not wired |
-| PTY stdout → Python sidecar | ❌ Not wired |
+| Auto-spawn agents on launch | ✅ Wired |
+| PTY stdout → Python sidecar | ✅ Wired |
 | PTY resize | ❌ Not implemented |
-| Real PTY sessions rendering | ❌ Not end-to-end tested |
+| Real PTY sessions rendering | ⚠️ Needs GUI/xterm live verification |
 | File tree (watchdog) | ❌ Phase 2 |
 | Git branch in status bar | ❌ Phase 2 |
 
@@ -51,16 +51,17 @@ WebSocket sidecar for signal parsing, and a structured signal protocol
 
 ## Next task
 
-**Live end-to-end smoke:** prove the committed launch sequence works in the real
-app flow with Python sidecar + Tauri app + 4 PTYs + signal parsing into UI.
+**Targeted GUI/xterm live verification:** close the remaining evidence gaps from
+the live smoke by checking the running desktop app, not only backend/protocol
+scripts.
 
 Acceptance criteria:
-1. Python sidecar starts and listens on `ws://127.0.0.1:7373` and PTY ingest `127.0.0.1:7374`
-2. `npm run tauri dev` starts the app without manual agent spawning
-3. All 4 agents from `harness.toml` have live PTY panes
-4. Typing in an agent pane sends input to the correct PTY
-5. PTY output renders correctly in xterm.js
-6. A real Harness signal emitted from a PTY reaches Python, parses, broadcasts over WebSocket, and updates UI state
+1. Desktop app visibly shows all 4 configured agent panes from `harness.toml`.
+2. At least one pane accepts keyboard input and sends it to the correct PTY.
+3. PTY output visibly renders in xterm.js.
+4. A real Harness signal emitted through a pane updates visible UI state.
+5. xterm panes do not remount, clear, or visibly flicker when live `state_diff` updates arrive.
+6. Any environment setup needed for local verification is documented, but no functional code is changed unless a real blocker is found.
 
 ---
 
@@ -266,6 +267,116 @@ Attempt 1 succeeded. The security hardening follow-up can proceed with ADVISORY 
 
 Attempt 1 succeeded with ADVISORY security status. Backend/protocol runtime smoke passed; GUI/xterm live verification remains a follow-up before claiming the UI criteria are fully closed.
 
+## Orchestrator cycle (active)
+
+| Field | Value |
+|-------|--------|
+| Task | Targeted GUI/xterm live verification |
+| Attempt | 2 of 3 |
+| Step | **Final check** — completed **2026-05-10** |
+| Status | **Success with reservations** — QA approved with reservations; Security returned ADVISORY with no critical findings. |
+| Dashboard | `final_check` |
+
+### Builder scope (attempt 1)
+
+- Run the real desktop app path and directly inspect the GUI.
+- Verify visible xterm panes, keyboard input, xterm output, signal-to-UI update, and no xterm remount/flicker during live updates.
+- Prefer no code changes. If a real blocker is found, make the smallest fix and report exact files changed.
+- Keep the critical product constraint: xterm.js terminals must not unmount/remount on store updates; attach once with refs, only chrome overlays react.
+
+### Builder return summary (attempt 1)
+
+**VERDICT:** incomplete / failed to verify
+
+- No code changes.
+- Builder ran `npm run build`; production build passed.
+- Builder could not attach to the macOS desktop window or capture screenshots of the Tauri webview, so acceptance criteria 1-5 were not observed.
+- Runtime GUI smoke remained partial; no sidecar/app runtime was started in this attempt.
+- Builder noted doc drift: `CLAUDE.md` still says launch/PTY-to-sidecar are not wired while `HANDOFF.md` reflects the committed implementation.
+- Builder reported `_prompts/builder.md` missing in that environment, but it exists in this checkout.
+- Attempt 2 must be run in a session that can observe the native Tauri window directly.
+
+### Builder return summary (attempt 2)
+
+**VERDICT:** PASS WITH RESERVATIONS
+
+Two real blockers were found and fixed (4 lines of code + 1 new file). Human visual confirmation collected at each step.
+
+**Blockers found and fixed:**
+
+1. `BentoGrid.tsx` — `Object.values(s.project.agents)` as a Zustand v5 `useSyncExternalStore` selector returns a new array reference on every `getSnapshot` call, causing React to throw "Maximum update depth exceeded" and blank the window. Fix: `useShallow` from `zustand/react/shallow`. This was root cause of the blank window reported by human.
+
+2. `src-tauri/capabilities/default.json` (new file) — Tauri 2 requires an explicit capability grant for built-in IPC plugin commands. Without it, `listen('pty-data-*')` in `usePtyTerminal` throws "event.listen not allowed", preventing PTY output from reaching xterm. Fix: `core:default` capability (includes `core:event:default` → `allow-listen`). Requires a Rust rebuild.
+
+3. `UserTerminal.tsx` + `usePtyTerminal.ts` — async `init()` does not re-check `ref.current` / `xtermRef.current` after dynamic `await import(...)`. In React Strict Mode, the component can unmount between the guard and the `term.open()` call. Fix: post-await null check added to both files.
+
+**Evidence collected:**
+- Human confirmed blank window before BentoGrid fix; 4 panes visible after.
+- Screenshot at 21:14:50 shows all 4 agent panes rendering real PTY output (Claude Code startup text from `sh -c "claude --agent X"` commands).
+- WS stable: `lsof` confirms `com.apple` (WKWebView, PID 27521) → ESTABLISHED to sidecar 7373.
+- PTY ingest: `lsof` confirms Rust binary connected to 7374 after bootstrap.
+- Signal injection: framed PTY signal for `orchestrator` agent → `state_diff` broadcast → human confirmed visible UI change in Orchestrator pane (status dot, token bar).
+- `npm run build` passed (tsc + vite) before and after fixes.
+- Rust recompile with capabilities: new binary at PID 27273; no compile errors beyond pre-existing `start_sidecar` warning.
+
+**Remaining reservations (non-blocking):**
+1. `claude --agent X` is not a valid Claude Code CLI flag — all 4 PTY processes exit immediately after showing startup text. Keyboard input path is wired (`invoke('pty_write')`) but cannot be tested end-to-end without valid PTY commands in `harness.toml`.
+2. WS Strict Mode dev error ("WebSocket is closed before connection is established") fires once per page load during React Strict Mode's double-invocation cleanup — cosmetic in dev mode, WS recovers immediately.
+3. "you" (UserTerminal) pane: human reports it as hidden or not clearly visible. Likely rendering as an empty dark 120px xterm area with no shell attached (no PTY spawned for the user pane). Not a code bug — UserTerminal intentionally has no PTY; the user terminal requires a shell to be manually connected.
+4. xterm no-remount under live updates: inferred from code (empty `[]` deps in usePtyTerminal, useShallow in BentoGrid) and from the fact that the UI updated on `state_diff` without any reported remount/flash.
+
+**Files changed:**
+- `src/components/BentoGrid.tsx` — 2 lines (+import, useShallow)
+- `src/components/UserTerminal.tsx` — 1 line (post-await null check)
+- `src/hooks/usePtyTerminal.ts` — 1 line (post-await null check)
+- `src-tauri/capabilities/default.json` — new file (Tauri 2 capability grant)
+
+**Commands run:**
+- `harness/.venv/bin/python harness/main.py` (sidecar)
+- `npm run tauri dev` (2 times — second after capabilities file added)
+- `npm run build` (passes)
+- `lsof -i :7373 -i :7374` (verified connections)
+- Python WS/TCP script for signal injection and state_diff capture
+
+### QA verdict (attempt 2)
+
+**VERDICT:** APPROVED WITH RESERVATIONS
+
+- QA confirmed the two infrastructure blockers were correctly identified and fixed:
+  - `BentoGrid` infinite render loop fixed with `useShallow`;
+  - missing Tauri 2 event capability fixed with a `default` capability for the main window.
+- QA confirmed the post-await xterm guards are correct and reduce Strict Mode double-init risk.
+- `npm run build` passed.
+- Acceptance criteria:
+  1. Four visible panes: pass.
+  2. Keyboard input reaches correct PTY: partial; blocked by invalid `harness.toml` commands, not by infrastructure.
+  3. PTY output renders in xterm: pass.
+  4. Real signal updates visible UI state: pass.
+  5. No xterm remount/flicker under live updates: pass.
+- QA reservations to carry forward:
+  1. `harness.toml` commands (`claude --agent X`) are not valid long-running processes; create a separate task to update them.
+  2. `core:default` is broader than minimum required; acceptable for a local desktop dev tool scoped to `windows: ["main"]`, but tighten if remote-content webviews are ever added.
+  3. `src-tauri/gen/schemas/capabilities.json` is an expected generated consequence; consider `.gitattributes` for diff hygiene later.
+  4. `CLAUDE.md` has stale "not yet wired" notes.
+  5. `[TASK]` optional-signal spec/parser gap remains open.
+  6. `UserTerminal` has no PTY wired and should be tracked separately.
+
+### Security verdict (attempt 2)
+
+**VERDICT:** ADVISORY
+
+- No critical security issue introduced by attempt 2.
+- `core:default` is broader than a minimal event-only grant but acceptable for this local desktop dev tool because it is scoped to `windows: ["main"]` and does not grant shell, filesystem, HTTP, dialog, updater, or remote-content privileges.
+- `useShallow` and xterm post-await guards reduce runtime instability without creating a meaningful trust-boundary issue.
+- Security advisories to carry forward:
+  1. Tighten `src-tauri/capabilities/default.json` to the narrowest required event/invoke permissions if the app later adds remote-content webviews or less-trusted windows.
+  2. `pty_spawn` / `pty_write` remain exposed to the trusted main webview; keep the backlog item to gate or remove arbitrary `pty_spawn` once bootstrap is the only supported spawn path.
+  3. Generated `src-tauri/gen/schemas/capabilities.json` is expected and should be included if this attempt is committed.
+
+### Final result
+
+Attempt 2 succeeded with ADVISORY security status. GUI/xterm infrastructure is now verified enough to close this task with reservations; keyboard end-to-end remains blocked by invalid `harness.toml` command configuration, not by PTY infrastructure.
+
 ---
 
 ## Known risks / open questions
@@ -276,6 +387,8 @@ Attempt 1 succeeded with ADVISORY security status. Backend/protocol runtime smok
 3. **Sidecar bundling** — PyInstaller binary size; test early before release.
 4. **GUI/xterm live verification** — Run a targeted local GUI check for visible panes, keyboard input, xterm rendering, UI status update, and no xterm remount/flicker under live `state_diff`.
 5. **Signal protocol alignment** — Either update AGENTS.md to require optional fields on the same line as `[STATUS:...]`, or patch `harness/parser.py` to support optional signal lines as the spec implies.
+6. **Agent command configuration** — Replace invalid `claude --agent X` commands in `harness.toml` with valid long-running shells or real agent invocations so keyboard → PTY → output can be tested end-to-end.
+7. **UserTerminal UX** — Decide whether the "you" terminal should spawn a shell, stay hidden, or be explicitly presented as inactive.
 
 ## Backlog — security hardening polish
 
@@ -290,6 +403,7 @@ Carry these lower-priority polish items forward:
 7. Add timeout/backgrounding around startup `git rev-parse`.
 8. Keep PTY frame payload casts explicit if the read path ever changes beyond 4096-byte chunks.
 9. Consider allowlisting config-derived class/style fields for UI integrity.
+10. Narrow Tauri capability permissions from `core:default` to the minimum event/invoke set if the app ever hosts less-trusted or remote content.
 
 ## Backlog — operational docs
 

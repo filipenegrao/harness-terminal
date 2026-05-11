@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Default capability — grants core IPC including event listen/emit for PTY bridge","local":true,"windows":["main"],"permissions":["core:default"]}}

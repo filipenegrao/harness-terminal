@@ -29,6 +29,7 @@ export function usePtyTerminal(
     async function init() {
       const { Terminal } = await import('@xterm/xterm');
       const { FitAddon } = await import('@xterm/addon-fit');
+      if (!containerRef.current || xtermRef.current) return;
 
       const term = new Terminal({
         theme: {

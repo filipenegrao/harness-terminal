@@ -3,10 +3,10 @@
   "phase": "1-mvp",
   "last_updated": "2026-05-10",
   "orchestrator": {
-    "active_task": "live_e2e_smoke",
-    "attempt": 1,
+    "active_task": "gui_xterm_live_verification",
+    "attempt": 2,
     "step": "final_check",
-    "notes": "Attempt 1 complete: QA APPROVED WITH RESERVATIONS; Security ADVISORY with no critical findings"
+    "notes": "Attempt 2 complete: QA APPROVED WITH RESERVATIONS; Security ADVISORY with no critical findings"
   },
   "features": {
     "scaffold": {
@@ -54,8 +54,20 @@
       "notes": "Attempt 1 succeeded with reservations: backend/protocol smoke passed; QA approved with reservations; Security ADVISORY; GUI/xterm live verification remains follow-up"
     },
     "gui_xterm_live_verification": {
+      "status": "done",
+      "notes": "Attempt 2 succeeded with reservations: useShallow/capability/async guards accepted; 4 panes, PTY output, signal-to-UI verified; keyboard PTY E2E blocked by invalid harness.toml commands; Security ADVISORY"
+    },
+    "agent_command_configuration": {
       "status": "todo",
-      "notes": "Follow-up: visually/mechanically verify four panes, keyboard input, xterm rendering, UI status update, and no xterm remount under live state_diff"
+      "notes": "Replace invalid claude --agent X commands in harness.toml with valid long-running shells or real agent invocations so keyboard-to-PTY E2E can be verified"
+    },
+    "user_terminal_ux": {
+      "status": "todo",
+      "notes": "Decide whether UserTerminal should spawn a shell, stay hidden, or be explicitly presented as inactive"
+    },
+    "tauri_capability_narrowing": {
+      "status": "todo",
+      "notes": "core:default is accepted for trusted local main window; narrow to explicit event/invoke permissions if remote or less-trusted webviews are added"
     },
     "signal_protocol_alignment": {
       "status": "todo",

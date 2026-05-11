@@ -9,6 +9,7 @@ export default function UserTerminal() {
       if (!termRef.current || xtermRef.current) return;
       const { Terminal } = await import('@xterm/xterm');
       const { FitAddon } = await import('@xterm/addon-fit');
+      if (!termRef.current || xtermRef.current) return;
       const term = new Terminal({
         theme: {
           background: '#18181b',

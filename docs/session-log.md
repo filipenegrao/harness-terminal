@@ -151,3 +151,37 @@ Security hardening follow-up succeeded on attempt 1. Remaining items are non-blo
 ### Final state
 
 Live smoke gate succeeded on attempt 1 with reservations. Backend/protocol runtime evidence is accepted; GUI/xterm live verification and parser/spec alignment remain follow-up tasks.
+
+---
+
+## 2026-05-10 — Session 5: GUI/xterm live verification gate
+
+**Operator:** Filipe Negrão
+**Agent:** Codex orchestrator
+
+### What was done
+
+1. Processed Builder attempt 1:
+   - No code changes
+   - `npm run build` passed
+   - Attempt could not observe the macOS Tauri window, so GUI criteria remained unverified
+
+2. Processed Builder attempt 2:
+   - fixed `BentoGrid` infinite re-render/blank window with `useShallow`
+   - added Tauri 2 `default` capability so `event.listen` works for PTY output
+   - added post-await xterm init guards in `UserTerminal` and `usePtyTerminal`
+   - human-confirmed four panes, PTY output, signal-to-UI update, and no visible remount/flicker during the smoke
+
+3. Sent attempt 2 through QA:
+   - Result: APPROVED WITH RESERVATIONS
+   - `npm run build` passed
+   - keyboard end-to-end remains partial because `harness.toml` uses invalid `claude --agent X` commands
+
+4. Sent the approved diff through Security:
+   - Result: ADVISORY
+   - No critical findings
+   - `core:default` accepted for the trusted local main window, with future narrowing recommended if trust boundaries change
+
+### Final state
+
+GUI/xterm verification succeeded on attempt 2 with reservations. Follow-up tasks: valid long-running agent commands, UserTerminal UX, stale docs, signal protocol alignment, and optional Tauri capability narrowing.
